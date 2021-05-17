@@ -155,7 +155,7 @@ def preprocessing_arrays():
         S = np.log(S)
         S = (S - means[index]) / (stds[index] + eps)
         # clipping
-        S = np.where(np.abs(S) < 3 * stds[index], S, 3 * stds[index] * np.sign(S))
+        S = np.where(np.abs(S) < 3, S, 3 * np.sign(S))
         # rescale to [-1,1]
         S /= 3
 
