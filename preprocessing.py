@@ -166,7 +166,7 @@ def preprocessing_arrays():
 
 # function to downsample all arrays and save to folder
 def downsample():
-    paths = get_dataset_paths(RESIZED_STFT_DIR, ".npy")
+    paths = get_dataset_paths(PROCESSED_STFT_DIR, ".npy")
     for path in paths:
         S = np.load(path)
         S_downsample = skimage.transform.resize(S, (256, 256), anti_aliasing=True)
