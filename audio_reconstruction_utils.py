@@ -31,3 +31,14 @@ def denormalize_stft(s):
     s_denorm += -6
     s_denorm = np.exp(s_denorm)
     return s_denorm
+
+
+def descale(s_scaled):
+    s = 255 * (s_scaled - np.min(s_scaled)) / (np.max(s_scaled) - np.min(s_scaled))
+    for i in range(s.shape[0]):
+        for j in range(s.shape[1]):
+            if 20 < s[i][j] < 150:
+                s[i][j] -= 20
+                if 10 < s[i][j] < 150:
+                    s[i][j] /= 10
+    return s
