@@ -2,6 +2,8 @@ import datetime
 import os
 import time
 
+import numpy as np
+
 
 def get_filename(path):
     """
@@ -86,3 +88,10 @@ def display_progress_eta(current_item, total_items, start_time):
     seconds = (time.time() - start_time) / index * (len_total - index)
     eta = str(datetime.timedelta(seconds=round(seconds)))
     print("\r\nProcessed {}% ({}/{}) \nETA: {}".format(percentage, index, len_total, eta))
+
+
+def scale(s):
+    s_scaled = 255 * (s - np.min(s)) / (np.max(s) - np.min(s))
+    s_scaled[s_scaled > 0.8] *= 10
+    s_scaled[s_scaled > 0.8] += 50
+    return s_scaled

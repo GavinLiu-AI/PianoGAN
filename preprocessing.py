@@ -12,7 +12,7 @@ import skimage.transform
 from pydub import AudioSegment
 from pydub.utils import make_chunks
 
-import preprocessing_utils as prep
+import preprocessing_utils as prep_utils
 import util
 
 DATASET_DIR = "./data/audio/maestro-v3.0.0"
@@ -24,9 +24,15 @@ STFT_ARRAY_DIR = "./data/stft_arrays/"
 PROCESSED_STFT_DIR = "./data/clipped_stft/"
 RESIZED_STFT_DIR = "./data/resized_stft/"
 
-STYLEGAN_STFT_IMAGES_DIR = "data/styleGAN/stft_images/"
+STYLEGAN_STFT_IMAGES_256_DIR = "data/styleGAN/stft_images_256/"
+STYLEGAN_STFT_IMAGES_512_GRAY_DIR = "data/styleGAN/stft_images_512_gray/"
 STYLEGAN_STFT_ARRAYS_DIR = "data/styleGAN/stft_arrays/"
+STYLEGAN_STFT_IMAGES_TEST_DIR = "data/styleGAN/test_images/"
+
 STYLEGAN_AUDIO_TEST_DIR = "output/styleGAN/styleGAN_preprocess_test/"
+STYLEGAN_AUDIO_OUTPUT_DIR = "output/styleGAN/audio/"
+STYLEGAN_STFT_IMAGES_FAKE_DIR = "output/styleGAN/stft_images_fake/"
+STYLEGAN_STFT_IMAGES_FAKE_TEMP_DIR = "output/styleGAN/stft_images_fake_temp/"
 
 
 def make_audio_chunks(seconds, dest_dir):
@@ -37,11 +43,11 @@ def make_audio_chunks(seconds, dest_dir):
 
     :param dest_dir: output directory
     """
-    paths = prep.get_absolute_file_paths(DATASET_DIR, ".wav")
+    paths = prep_utils.get_absolute_file_paths(DATASET_DIR, ".wav")
 
     start_time = time.time()
     for audio_path in paths:
-        prep.display_progress_eta(current_item=audio_path, total_items=paths, start_time=start_time)
+        prep_utils.display_progress_eta(current_item=audio_path, total_items=paths, start_time=start_time)
 
         audio = AudioSegment.from_file(audio_path)
         chunk_length_ms = seconds * 1000  # 20 seconds
@@ -60,7 +66,7 @@ def display_spectrogram():
     """
     Function used to generate and display sample spectrogram from audio files.
     """
-    paths = prep.get_absolute_file_paths(AUDIO_CHUNKS_20S_DIR)[:3]
+    paths = prep_utils.get_absolute_file_paths(AUDIO_CHUNKS_20S_DIR)[:3]
 
     for path in paths:
         y, sr = librosa.load(path)
@@ -92,11 +98,11 @@ def convert_audio_to_stft(src_dir, dest_dir, extension):
     :param dest_dir: output STFT directory
     :param extension: desired output file type
     """
-    paths = prep.get_unprocessed_items(src_dir=src_dir, dest_dir=dest_dir)
+    paths = prep_utils.get_unprocessed_items(src_dir=src_dir, dest_dir=dest_dir)
 
     start_time = time.time()
     for path in paths:
-        prep.display_progress_eta(current_item=path, total_items=paths, start_time=start_time)
+        prep_utils.display_progress_eta(current_item=path, total_items=paths, start_time=start_time)
 
         y, sr = librosa.load(path)
 
@@ -106,7 +112,7 @@ def convert_audio_to_stft(src_dir, dest_dir, extension):
         # Separate the magnitude and phase and only use magnitude
         S, _ = librosa.magphase(D)
 
-        out = dest_dir + prep.get_filename(path) + extension
+        out = dest_dir + prep_utils.get_filename(path) + extension
         np.save(out, S)
 
 
@@ -115,13 +121,13 @@ def audio_reconstruction():
     """
     Function used to reconstruct sample audio clips from STFT matrices, and save audio to file.
     """
-    paths = prep.get_absolute_file_paths(STFT_ARRAY_DIR)
+    paths = prep_utils.get_absolute_file_paths(STFT_ARRAY_DIR)
 
     for path in paths:
         S = np.load(path)
         y = librosa.griffinlim(S)
 
-        out = AUDIO_OUT_DIR + prep.get_filename(path) + ".wav"
+        out = AUDIO_OUT_DIR + prep_utils.get_filename(path) + ".wav"
 
         # Save reconstructed data
         scipy.io.wavfile.write(out, 22050, y)
@@ -129,7 +135,7 @@ def audio_reconstruction():
 
 # process all arrays to record mean and std for later use
 def record_mean_std():
-    paths = prep.get_absolute_file_paths(STFT_ARRAY_DIR)
+    paths = prep_utils.get_absolute_file_paths(STFT_ARRAY_DIR)
 
     mean_list = []
     std_list = []
@@ -169,42 +175,43 @@ def preprocessing_arrays():
         # rescale to [-1,1]
         S /= 3
 
-        out = PROCESSED_STFT_DIR + prep.get_filename(paths[index]) + ".npy"
+        out = PROCESSED_STFT_DIR + prep_utils.get_filename(paths[index]) + ".npy"
         np.save(out, S)
 
 
 # function to downsample all arrays and save to folder
 def downsample():
-    paths = prep.get_absolute_file_paths(PROCESSED_STFT_DIR)
+    paths = prep_utils.get_absolute_file_paths(PROCESSED_STFT_DIR)
     for path in paths:
         S = np.load(path)
         S_downsample = skimage.transform.resize(S, (256, 256), anti_aliasing=True)
-        out = RESIZED_STFT_DIR + prep.get_filename(path) + ".npy"
+        out = RESIZED_STFT_DIR + prep_utils.get_filename(path) + ".npy"
         np.save(out, S_downsample)
 
 
-def convert_stft_to_images(src_dir, dest_dir, ext=".png"):
+def convert_stft_to_images(src_dir, dest_dir, ext=".png", size=None):
     """
     Function used to convert STFT matrices to images, and saves them to destination folder
 
     :param src_dir: source folder where STFT matrices are stored
     :param dest_dir: output images folder
     :param ext: image format, defaulted to .png
+    :param size: dimension of desired square image
     """
-    paths = prep.get_unprocessed_items(src_dir=src_dir, dest_dir=dest_dir)
+    paths = prep_utils.get_unprocessed_items(src_dir=src_dir, dest_dir=dest_dir)
 
     start_time = time.time()
     for path in paths:
-        prep.display_progress_eta(current_item=path, total_items=paths, start_time=start_time)
+        prep_utils.display_progress_eta(current_item=path, total_items=paths, start_time=start_time)
 
-        S = np.load(path)
-        S_norm = normalize_stft(S)
+        S_norm = np.load(path)
+        S_norm = normalize_stft(S_norm)
 
-        size = 512
-        S_norm_resized = cv2.resize(S_norm, (size, size), interpolation=cv2.INTER_CUBIC)
+        if size:
+            S_norm = cv2.resize(S_norm, (size, size), interpolation=cv2.INTER_CUBIC)
 
-        out_path = dest_dir + prep.get_filename(path) + ext
-        plt.imsave(out_path, S_norm_resized)
+        out_path = dest_dir + prep_utils.get_filename(path) + ext
+        plt.imsave(out_path, S_norm)
 
         image = cv2.imread(out_path)
         cv2.imwrite(out_path, image)
@@ -230,6 +237,23 @@ def normalize_stft(s):
     return s
 
 
+def convert_stft_to_images_grayscale(src_dir, dest_dir, ext=".png", size=None):
+    paths = prep_utils.get_unprocessed_items(src_dir=src_dir, dest_dir=dest_dir)
+
+    start_time = time.time()
+    for path in paths:
+        prep_utils.display_progress_eta(current_item=path, total_items=paths, start_time=start_time)
+
+        S = np.load(path)
+        S_scaled = prep_utils.scale(S)
+
+        if size:
+            S_scaled = cv2.resize(S_scaled, (size, size), interpolation=cv2.INTER_CUBIC)
+
+        out_path = dest_dir + prep_utils.get_filename(path) + ext
+        cv2.imwrite(out_path, S_scaled)
+
+        
 def dc_gan_processing():
     paths = util.get_dataset_paths(AUDIO_CHUNKS_20S_DIR, ".wav")
 
@@ -253,9 +277,11 @@ def dc_gan_processing():
 
 
 def style_gan_preprocessing():
-    make_audio_chunks(seconds=10, dest_dir=AUDIO_CHUNKS_10S_DIR)
-    convert_audio_to_stft(src_dir=AUDIO_CHUNKS_10S_DIR, dest_dir=STYLEGAN_STFT_ARRAYS_DIR, extension=".npy")
-    convert_stft_to_images(src_dir=STYLEGAN_STFT_ARRAYS_DIR, dest_dir=STYLEGAN_STFT_IMAGES_DIR)
+    # make_audio_chunks(seconds=10, dest_dir=AUDIO_CHUNKS_10S_DIR)
+    # convert_audio_to_stft(src_dir=AUDIO_CHUNKS_10S_DIR, dest_dir=STYLEGAN_STFT_ARRAYS_DIR, extension=".npy")
+    # convert_stft_to_images(src_dir=STYLEGAN_STFT_ARRAYS_DIR, dest_dir=STYLEGAN_STFT_IMAGES_TEST_DIR, size=256)
+    convert_stft_to_images_grayscale(src_dir=STYLEGAN_STFT_ARRAYS_DIR, dest_dir=STYLEGAN_STFT_IMAGES_512_GRAY_DIR,
+                                     size=512)
 
 
 def preprocessing():
