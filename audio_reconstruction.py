@@ -4,16 +4,18 @@ import time
 import cv2
 import librosa
 import matplotlib.pyplot as plt
+import noisereduce as nr
 import numpy as np
 import pandas as pd
 import scipy.io.wavfile
+import soundfile as sf
 
 import audio_reconstruction_utils as ar_utils
 import preprocessing as prep
 import preprocessing_utils as prep_utils
 
 
-def audio_reconstruction_stylegan(src_dir, dest_dir, resize_h, resize_w):
+def audio_reconstruction_stylegan(src_dir, dest_dir, resize_h, resize_w, mode="RGB"):
     src_dir, sub_dir = ar_utils.select_images_iteration(directory=src_dir)
     paths = prep_utils.get_absolute_file_paths(src_dir)
 
@@ -24,26 +26,48 @@ def audio_reconstruction_stylegan(src_dir, dest_dir, resize_h, resize_w):
     start_time = time.time()
     for path in paths:
         prep_utils.display_progress_eta(current_item=path, total_items=paths, start_time=start_time)
+        out_path = out_dir + prep_utils.get_filename(path)
 
-        image = cv2.imread(path)
-        image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        if mode == "RGB":
+            image = cv2.imread(path)
+            image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        S_recovered = np.array(image_gray, dtype=np.float32)
-        S_recovered = cv2.resize(S_recovered, (resize_w, resize_h), interpolation=cv2.INTER_LINEAR)
+            S_recovered = np.array(image_gray, dtype=np.float32)
+            S_recovered = cv2.resize(S_recovered, (resize_w, resize_h), interpolation=cv2.INTER_LINEAR)
 
-        S = (S_recovered - np.min(S_recovered)) / (np.max(S_recovered) - np.min(S_recovered)) * 2 - 1
-        pd.DataFrame(S).to_csv(out_dir + prep_utils.get_filename(path) + "_norm.csv", header=None, index=False)
-        plt.imsave(out_dir + prep_utils.get_filename(path) + "_norm.png", S)
+            S = (S_recovered - np.min(S_recovered)) / (np.max(S_recovered) - np.min(S_recovered)) * 2 - 1
+            pd.DataFrame(S).to_csv(out_dir + prep_utils.get_filename(path) + "_norm.csv", header=None, index=False)
+            plt.imsave(out_dir + prep_utils.get_filename(path) + "_norm.png", S)
 
-        S = ar_utils.denormalize_stft(s=S)
-        pd.DataFrame(S).to_csv(out_dir + prep_utils.get_filename(path) + "_reconstruct.csv", header=None, index=False)
-        plt.imsave(out_dir + prep_utils.get_filename(path) + "_reconstruct.png", S)
+            S = ar_utils.denormalize_stft(s=S)
+            pd.DataFrame(S).to_csv(out_dir + prep_utils.get_filename(path) + "_reconstruct.csv", header=None,
+                                   index=False)
+            plt.imsave(out_dir + prep_utils.get_filename(path) + "_reconstruct.png", S)
 
-        y = librosa.griffinlim(S)
+            y = librosa.griffinlim(S)
+            out = out_dir + prep_utils.get_filename(path) + ".wav"
+            scipy.io.wavfile.write(out, 22050, y)
+        elif mode == "grayscale":
+            S = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+            S = np.array(S, dtype=np.float32)
+            S_recovered = S
+            pd.DataFrame(S_recovered).to_csv(out_path + "_original.csv", header=None, index=False)
+            cv2.imwrite(out_path + "_original.png", S_recovered)
 
-        out = out_dir + prep_utils.get_filename(path) + ".wav"
+            S_recovered = cv2.resize(S_recovered, (resize_w, resize_h), interpolation=cv2.INTER_CUBIC)
+            S_recovered = ar_utils.descale(S_recovered)
 
-        scipy.io.wavfile.write(out, 22050, y)
+            pd.DataFrame(S_recovered).to_csv(out_path + "_recovered.csv", header=None, index=False)
+            cv2.imwrite(out_path + "_recovered.png", S_recovered)
+
+            y = librosa.griffinlim(S_recovered)
+            out = out_dir + prep_utils.get_filename(path) + "_recovered.wav"
+            scipy.io.wavfile.write(out, 22050, y)
+
+            rate, data = scipy.io.wavfile.read(out)
+            reduced_noise = nr.reduce_noise(audio_clip=data, noise_clip=data, verbose=False)
+            out = out_dir + prep_utils.get_filename(path) + "_nr.wav"
+            sf.write(out, reduced_noise, rate)
 
 
 def organize_temp_fake_images(src_dir, dest_dir):
@@ -100,8 +124,8 @@ def audio_reconstruction_test(src_dir, dest_dir, ext=".png", size=None):
 
 
 if __name__ == "__main__":
-    # organize_temp_fake_images(src_dir=prep.STYLEGAN_STFT_IMAGES_FAKE_TEMP_DIR,
-    #                           dest_dir=prep.STYLEGAN_STFT_IMAGES_FAKE_DIR)
-    # audio_reconstruction_stylegan(src_dir=prep.STYLEGAN_STFT_IMAGES_FAKE_DIR, dest_dir=prep.STYLEGAN_AUDIO_OUTPUT_DIR,
-    #                               resize_h=1025, resize_w=431)
-    audio_reconstruction_test(src_dir=prep.STYLEGAN_STFT_ARRAYS_DIR, dest_dir=prep.STYLEGAN_AUDIO_TEST_DIR, size=512)
+    organize_temp_fake_images(src_dir=prep.STYLEGAN_STFT_IMAGES_FAKE_TEMP_DIR,
+                              dest_dir=prep.STYLEGAN_STFT_IMAGES_FAKE_DIR)
+    audio_reconstruction_stylegan(src_dir=prep.STYLEGAN_STFT_IMAGES_FAKE_DIR, dest_dir=prep.STYLEGAN_AUDIO_OUTPUT_DIR,
+                                  resize_h=1025, resize_w=431, mode="grayscale")
+    # audio_reconstruction_test(src_dir=prep.STYLEGAN_STFT_ARRAYS_DIR, dest_dir=prep.STYLEGAN_AUDIO_TEST_DIR, size=512)
