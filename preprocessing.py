@@ -13,6 +13,7 @@ from pydub import AudioSegment
 from pydub.utils import make_chunks
 
 import preprocessing_utils as prep_utils
+import util
 
 DATASET_DIR = "./data/audio/maestro-v3.0.0"
 AUDIO_CHUNKS_10S_DIR = "data/audio/audio_chunks_10s/"
@@ -252,6 +253,28 @@ def convert_stft_to_images_grayscale(src_dir, dest_dir, ext=".png", size=None):
         out_path = dest_dir + prep_utils.get_filename(path) + ext
         cv2.imwrite(out_path, S_scaled)
 
+        
+def dc_gan_processing():
+    paths = util.get_dataset_paths(AUDIO_CHUNKS_20S_DIR, ".wav")
+
+    for path in paths:
+        print("Converting ", path)
+
+        y, sr = librosa.load(path, sr=10000)
+
+        # Acquire magnitude matrix
+        D = librosa.stft(y, n_fft=1024, hop_length=256)
+        S, phase = librosa.magphase(D)  # S shape (513, 782)
+
+        # normalize S and downsample
+        S = normalize_stft(S)
+        S = cv2.resize(S, (512, 512), interpolation=cv2.INTER_AREA)
+
+        _, file_name = os.path.split(path)
+        out = STFT_ARRAY_DIR + os.path.splitext(file_name)[0] + ".npy"
+
+        np.save(out, S)
+
 
 def style_gan_preprocessing():
     # make_audio_chunks(seconds=10, dest_dir=AUDIO_CHUNKS_10S_DIR)
@@ -272,5 +295,6 @@ def preprocessing():
 
 
 if __name__ == "__main__":
+    dc_gan_processing()
     # preprocessing()
     style_gan_preprocessing()
