@@ -79,7 +79,6 @@ def display_progress_eta(current_item, total_items, start_time):
 
     :param current_item: current item being processed
     :param total_items: list of items to be processed
-
     :param start_time: start time of the entire process
     """
     index = total_items.index(current_item) + 1
@@ -90,7 +89,14 @@ def display_progress_eta(current_item, total_items, start_time):
     print("\r\nProcessed {}% ({}/{}) \nETA: {}".format(percentage, index, len_total, eta))
 
 
-def scale(s):
+def increase_brightness(s):
+    """
+    Increase brightness for important pixels in STFT matrix
+
+    :param s: STFT matrix
+
+    :return: STFT matrix with increased brightness
+    """
     s_scaled = 255 * (s - np.min(s)) / (np.max(s) - np.min(s))
     s_scaled[s_scaled > 0.8] *= 10
     s_scaled[s_scaled > 0.8] += 50
