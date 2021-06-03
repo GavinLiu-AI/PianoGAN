@@ -39,7 +39,6 @@ def make_audio_chunks(seconds, dest_dir):
     Function used to convert audio into shorter audio clips, and save audio clips to files.
 
     :param seconds: desired clip length
-
     :param dest_dir: output directory
     """
     paths = prep_utils.get_absolute_file_paths(DATASET_DIR, ".wav")
@@ -132,8 +131,10 @@ def audio_reconstruction():
         scipy.io.wavfile.write(out, 22050, y)
 
 
-# process all arrays to record mean and std for later use
 def record_mean_std():
+    """
+    Record mean and std of all STFT matrices and save them locally
+    """
     paths = prep_utils.get_absolute_file_paths(STFT_ARRAY_DIR)
 
     mean_list = []
@@ -153,8 +154,10 @@ def record_mean_std():
     df.to_csv("./data/saved_mean_std.csv")
 
 
-# downsample all arrays in the dataset
 def preprocessing_arrays():
+    """
+    Normalize STFT matrices and save them locally
+    """
     df = pd.read_csv("./data/saved_mean_std.csv")
     paths = df['path']
     means = df['mean']
@@ -178,8 +181,10 @@ def preprocessing_arrays():
         np.save(out, S)
 
 
-# function to downsample all arrays and save to folder
 def downsample():
+    """
+    Downsample and resize to 256x256, and save them locally
+    """
     paths = prep_utils.get_absolute_file_paths(PROCESSED_STFT_DIR)
     for path in paths:
         S = np.load(path)
@@ -237,6 +242,14 @@ def normalize_stft(s):
 
 
 def convert_stft_to_images_grayscale(src_dir, dest_dir, ext=".png", size=None):
+    """
+    Convert STFT matrices into grayscale images
+
+    :param src_dir: source directory that stores STFT matrices
+    :param dest_dir: destination where converted images are being saved
+    :param ext: image extension
+    :param size: resize dimension
+    """
     paths = prep_utils.get_unprocessed_items(src_dir=src_dir, dest_dir=dest_dir)
 
     start_time = time.time()
@@ -244,7 +257,7 @@ def convert_stft_to_images_grayscale(src_dir, dest_dir, ext=".png", size=None):
         prep_utils.display_progress_eta(current_item=path, total_items=paths, start_time=start_time)
 
         S = np.load(path)
-        S_scaled = prep_utils.scale(S)
+        S_scaled = prep_utils.increase_brightness(S)
 
         if size:
             S_scaled = cv2.resize(S_scaled, (size, size), interpolation=cv2.INTER_CUBIC)
@@ -254,6 +267,9 @@ def convert_stft_to_images_grayscale(src_dir, dest_dir, ext=".png", size=None):
 
 
 def style_gan_preprocessing():
+    """
+    Data processing for StyleGAN2-ADA-Pytorch
+    """
     # make_audio_chunks(seconds=10, dest_dir=AUDIO_CHUNKS_10S_DIR)
     # convert_audio_to_stft(src_dir=AUDIO_CHUNKS_10S_DIR, dest_dir=STYLEGAN_STFT_ARRAYS_DIR, extension=".npy")
     # convert_stft_to_images(src_dir=STYLEGAN_STFT_ARRAYS_DIR, dest_dir=STYLEGAN_STFT_IMAGES_TEST_DIR, size=256)
@@ -262,6 +278,9 @@ def style_gan_preprocessing():
 
 
 def preprocessing():
+    """
+    Data processing for DCGAN and SpecGAN
+    """
     make_audio_chunks(seconds=20, dest_dir=AUDIO_CHUNKS_20S_DIR)
     display_spectrogram()
     convert_audio_to_stft(src_dir=AUDIO_CHUNKS_10S_DIR, dest_dir=STFT_ARRAY_DIR, extension=".npy")
