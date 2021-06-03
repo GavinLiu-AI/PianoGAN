@@ -16,6 +16,7 @@ for index in range(means.shape[0]):
         mag_mean += means[index] / means.shape[0]
 mag_std = np.mean(stds)
 
+
 def plot_loss(path):
     df = pd.read_pickle(path)
     epoch = df['epoch']
